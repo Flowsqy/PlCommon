@@ -1,0 +1,5 @@
+name: PlCommon
+author: Flowsqy
+version: "${project.version}"
+api-version: "1.17"
+main: fr.flowsqy.plcommon.PlCommonPlugin
