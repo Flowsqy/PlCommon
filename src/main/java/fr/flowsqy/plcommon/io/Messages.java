@@ -6,6 +6,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public class Messages {
 
@@ -13,19 +14,70 @@ public class Messages {
     private final Map<String, String[]> listMessages;
     private final String prefix;
 
-    public Messages(YamlConfiguration yamlConfiguration, String defaultPrefix) {
+    public Messages(YamlConfiguration yamlConfiguration, String defaultPrefix, String... ignoredKeys) {
+        this(yamlConfiguration, defaultPrefix, generateIgnorePattern(ignoredKeys));
+    }
+
+    public Messages(YamlConfiguration yamlConfiguration, String defaultPrefix, Pattern ignorePattern) {
         this.messages = new HashMap<>();
         this.listMessages = new HashMap<>();
         final String originalPrefix = yamlConfiguration.getString("prefix", defaultPrefix);
         Objects.requireNonNull(originalPrefix);
         this.prefix = ChatColor.translateAlternateColorCodes('&', originalPrefix);
-        initMessages(yamlConfiguration);
+        initMessages(yamlConfiguration, ignorePattern);
+
+        // DEBUG
+        messages.forEach((key, value) -> System.out.println(key + ": " + value));
+        listMessages.forEach((key, array) -> {
+            System.out.println(key + ": ");
+            for (String message : array) {
+                System.out.println("'" + message + "'");
+            }
+        });
     }
 
-    protected void initMessages(YamlConfiguration configuration) {
-        for (Map.Entry<String, Object> entry : configuration.getValues(false).entrySet()) {
+    public static Pattern generateIgnorePattern(String... ignoredKeys) {
+        if (ignoredKeys == null || ignoredKeys.length == 0)
+            return null;
+        final StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        int count = 0;
+        for (String ignoredKey : ignoredKeys) {
+            if (ignoredKey.isBlank()) {
+                continue;
+            }
+            if (first) {
+                first = false;
+            } else {
+                sb.append("|");
+            }
+            sb
+                    .append("(")
+                    .append(ignoredKey)
+                    .append("(\\.(.)+)?") // Exclude sub sections
+                    .append(")");
+            count++;
+        }
+        if (count == 0) {
+            return null;
+        }
+        if (count > 1) {
+            sb.insert(0, "(").append(")");
+        }
+        sb.insert(0, "^");
+        sb.append("$");
+
+        return Pattern.compile(sb.toString());
+    }
+
+    protected void initMessages(YamlConfiguration configuration, Pattern ignorePattern) {
+        for (Map.Entry<String, Object> entry : configuration.getValues(true).entrySet()) {
             final String key = entry.getKey();
             final Object value = entry.getValue();
+            // Skip ignored values
+            if (ignorePattern != null && ignorePattern.matcher(key).matches()) {
+                continue;
+            }
             if (value instanceof String message) {
                 messages.put(
                         key,
@@ -53,8 +105,7 @@ public class Messages {
         return prefix;
     }
 
-    public String getMessage(String path, String... replacement) {
-        String message = messages.get(path);
+    protected String getRawMessage(String message, String[] replacement) {
         if (message == null)
             return null;
 
@@ -64,6 +115,14 @@ public class Messages {
         }
 
         return message;
+    }
+
+    public String getMessage(String path, String... replacement) {
+        return getRawMessage(messages.get(path), replacement);
+    }
+
+    public String useMessage(String path, String... replacement) {
+        return getRawMessage(messages.remove(path), replacement);
     }
 
     public void getListMessage(String path, Consumer<String> messageConsumer, String... replacement) {
