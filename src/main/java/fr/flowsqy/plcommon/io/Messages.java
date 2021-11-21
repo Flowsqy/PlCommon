@@ -25,15 +25,6 @@ public class Messages {
         Objects.requireNonNull(originalPrefix);
         this.prefix = ChatColor.translateAlternateColorCodes('&', originalPrefix);
         initMessages(yamlConfiguration, ignorePattern);
-
-        // DEBUG
-        messages.forEach((key, value) -> System.out.println(key + ": " + value));
-        listMessages.forEach((key, array) -> {
-            System.out.println(key + ": ");
-            for (String message : array) {
-                System.out.println("'" + message + "'");
-            }
-        });
     }
 
     public static Pattern generateIgnorePattern(String... ignoredKeys) {
